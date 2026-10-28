@@ -1,0 +1,9 @@
+OEPS Command to Action includes ZXing.Net 0.16.11 (unmodified).
+ZXing barcode library: ZXing authors.
+.NET port: Michael Jahn and contributors.
+Project: https://github.com/micjahn/ZXing.Net
+Package: https://www.nuget.org/packages/ZXing.Net/0.16.11
+License: Apache License 2.0; see licenses/ZXing.Net-Apache-2.0.txt.
+
+The Windows installer also includes the Microsoft .NET runtime with its own
+LICENSE.txt and ThirdPartyNotices.txt in the runtime directory.

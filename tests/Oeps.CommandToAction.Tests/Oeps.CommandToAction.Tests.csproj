@@ -1,0 +1,14 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="ZXing.Net" Version="0.16.11" />
+    <Compile Include="../../src/Oeps.CommandToAction.App/CommandBarcode.cs" Link="CommandBarcode.cs" />
+    <ProjectReference Include="../../src/Oeps.CommandToAction.Core/Oeps.CommandToAction.Core.csproj" />
+    <Compile Include="../../src/Oeps.CommandToAction.App/WindowsActionKeyboard.cs" Link="WindowsActionKeyboard.cs" />
+    <Reference Include="Scanner.Client"><HintPath>../../client-sdk/Scanner.Client.dll</HintPath><Private>true</Private></Reference>
+    <Reference Include="Scanner.Contracts"><HintPath>../../client-sdk/Scanner.Contracts.dll</HintPath><Private>true</Private></Reference>
+  </ItemGroup>
+</Project>
