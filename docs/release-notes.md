@@ -1,4 +1,13 @@
-# OEPS Command to Action 0.1.4
+# OEPS Command to Action 0.1.5
+
+- Odoo OUT Moves now types serial/batch labels after the first Tab: `<prefix> [tab] <label> [tab] [tab] '1' <enter>`. Product-only OEPS labels keep their existing sequence. Command help matches the new order.
+- Correct DPI scaling in the main window, command info and timing dialogs. Layout dimensions and text now scale together, preventing cropped labels and command buttons on displays with increased scaling.
+
+Validation: 39 automated tests and 397 GUI assertions passed. GUI checks cover simulated 100%, 125%, 150% and 200% scaling, minimum-size and maximized windows. Actual Windows display scaling and moving between monitors remain manual checks.
+
+Install **Oeps.CommandToAction-0.1.5-setup-win-x64.msi** for Windows x64. It includes the .NET 10 desktop runtime. The **Oeps.CommandToAction-0.1.5-win-x64.zip** is the updater package. Both include SHA-256 checksum files.
+
+## 0.1.4
 
 First public release of the Windows application for scanner-driven keyboard actions.
 

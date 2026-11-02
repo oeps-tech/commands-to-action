@@ -1,5 +1,13 @@
 # Verification — 28 October 2026
 
+## 0.1.5 outgoing sequence and display scaling (2 November 2026)
+
+- **39 automated tests passed**, including exact Odoo OUT Moves keystroke/delay order for both serial/batch lengths, the unchanged OEPS product-only sequence, and the help text.
+- **397 GUI smoke assertions passed**. Main-window controls fit their parent containers at simulated 100%, 125%, 150% and 200% scale in normal, minimum-size and maximized states. Camera Server and Local computer remain readable; the info, gear and barcode buttons match the dropdown height and alignment. Timing and info dialog controls fit at every tested scale.
+- The forms now declare their 96 DPI design baseline and suspend layout until all controls are constructed, so initial autoscaling includes fixed table rows and columns.
+- Previews and report: `.local/ui-smoke-015/`. The enlarged layout and timing previews were visually inspected. These tests scale layout dimensions and fonts without altering Windows display settings; actual startup on high-DPI monitors and transitions between monitors still require the manual checks.
+- Built the local v0.1.5 application ZIP and bundled-runtime MSI; verified both SHA-256 sidecars and the ZIP manifest version. The sandbox build reported package-audit connectivity warnings; a subsequent online NuGet audit completed and found no vulnerable packages.
+
 ## 0.1.3 command Data Matrix copy
 
 - **39 automated tests passed**; all seven generated 1024px Data Matrix images decode to unique command envelopes that pass the bundled scanner SDK's checksum validation and select the expected command.

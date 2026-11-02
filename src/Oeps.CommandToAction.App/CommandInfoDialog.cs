@@ -6,8 +6,10 @@ internal sealed class CommandInfoDialog : Form
 {
     public CommandInfoDialog(ActionCommand command)
     {
+        SuspendLayout();
         Text = CommandCatalog.Get(command).Name;
         Font = new Font("Segoe UI", 10);
+        AutoScaleDimensions = new SizeF(96, 96);
         AutoScaleMode = AutoScaleMode.Dpi;
         ClientSize = new Size(760, 350);
         MinimumSize = new Size(600, 350);
@@ -30,5 +32,6 @@ internal sealed class CommandInfoDialog : Form
         Controls.Add(text); Controls.Add(buttons);
         AcceptButton = CancelButton = close;
         Shown += (_, _) => { text.SelectionLength = 0; close.Focus(); };
+        ResumeLayout(true);
     }
 }

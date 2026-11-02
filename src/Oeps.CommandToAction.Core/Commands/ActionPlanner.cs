@@ -51,14 +51,12 @@ public static partial class ActionPlanner
                     break;
                 }
                 TabThenWait();
-                if (command == ActionCommand.OdooOutMoves && !productOnly)
-                    TabThenWait();
                 if (!productOnly)
                 {
                     Text(raw);
                     Delay(timings.SnMs);
                 }
-                int remainingTabs = command == ActionCommand.OdooInMoves ? 3 : productOnly ? 2 : 1;
+                int remainingTabs = command == ActionCommand.OdooInMoves ? 3 : 2;
                 for (int i = 0; i < remainingTabs; i++) TabThenWait();
                 Text("1");
                 Delay(timings.CharMs);

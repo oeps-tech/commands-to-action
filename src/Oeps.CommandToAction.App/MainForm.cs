@@ -47,6 +47,7 @@ internal sealed partial class MainForm : Form
 
     public MainForm(AppConfiguration config, AppPaths paths, HttpClient http, string[] args)
     {
+        SuspendLayout();
         (_config, _paths, _http, _args) = (config, paths, http, args);
         _settings = UserSettings.Load(paths.SettingsFile);
         IActionKeyboard keyboard;
@@ -64,6 +65,9 @@ internal sealed partial class MainForm : Form
             () => MessageBox.Show(this, "Data Matrix code copied to clipboard.", "OEPS Command to Action", MessageBoxButtons.OK, MessageBoxIcon.Information);
         Text = "OEPS Command to Action";
         Font = new Font("Segoe UI", 10);
+        // All sizes below are authored at 96 DPI. Scale the complete layout together
+        // after construction, including fixed table rows, columns and margins.
+        AutoScaleDimensions = new SizeF(96, 96);
         AutoScaleMode = AutoScaleMode.Dpi;
         ClientSize = new Size(600, 370);
         MinimumSize = new Size(560, 406);
@@ -135,6 +139,7 @@ internal sealed partial class MainForm : Form
         };
         FormClosing += OnClosing;
         SetConnectionControls();
+        ResumeLayout(true);
     }
 
     private static Button SmallButton(string text, string name) => new()

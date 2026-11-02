@@ -123,6 +123,7 @@ internal sealed partial class MainForm
                 CaptureWindow(dialog, Path.Combine(_paths.UserDataRoot, "timing-dialog.png"));
                 dialog.Close();
             }
+            await CheckScaledLayoutsAsync(Check);
             report.Add("No real scanner connection, native keyboard injection or user clipboard changes were used.");
         }
         catch (Exception ex) { report.Add("FAIL " + ex); Environment.ExitCode = 1; }
@@ -131,6 +132,98 @@ internal sealed partial class MainForm
             File.WriteAllLines(Path.Combine(_paths.UserDataRoot, "ui-smoke.txt"), report);
             Close();
         }
+    }
+
+    private async Task CheckScaledLayoutsAsync(Action<bool, string> check)
+    {
+        // Exercise larger font metrics and layout dimensions without changing the
+        // user's Windows display settings. Actual per-monitor DPI is a manual check.
+        var previousScale = 1f;
+        foreach (var scale in new[] { 1f, 1.25f, 1.5f, 2f })
+        {
+            var name = "layout-" + (int)(scale * 100);
+            ScalePreview(this, scale / previousScale);
+            previousScale = scale;
+            await Task.Delay(100);
+            CheckMainLayout(name, check);
+            CaptureWindow(this, Path.Combine(_paths.UserDataRoot, name + ".png"));
+            var normalSize = Size;
+            Size = MinimumSize;
+            await Task.Delay(100);
+            CheckMainLayout(name + " minimum", check);
+            Size = normalSize;
+            WindowState = FormWindowState.Maximized;
+            await Task.Delay(100);
+            CheckMainLayout(name + " maximized", check);
+            WindowState = FormWindowState.Normal;
+            Size = normalSize;
+
+            using var timing = new TimingDialog(_settings.Timings);
+            using var info = new CommandInfoDialog(ActionCommand.OdooOutMoves);
+            foreach (var dialog in new Form[] { timing, info })
+            {
+                ScalePreview(dialog, scale);
+                dialog.Show(this);
+                await Task.Delay(100);
+                foreach (var control in Descendants(dialog).Where(c => c is Label or Button or NumericUpDown))
+                {
+                    check(FitsParents(control, dialog), $"{name}: {dialog.Text} / {control.Text} fits its containers.");
+                    if (control is Label or Button)
+                        check(control.ClientSize.Width >= TextRenderer.MeasureText(control.Text, control.Font).Width
+                            && control.ClientSize.Height >= control.Font.Height,
+                            $"{name}: {dialog.Text} / {control.Text} text fits.");
+                }
+                CaptureWindow(dialog, Path.Combine(_paths.UserDataRoot, name + "-" + (dialog == timing ? "timing" : "info") + ".png"));
+                dialog.Close();
+            }
+        }
+    }
+
+    private void CheckMainLayout(string name, Action<bool, string> check)
+    {
+        foreach (var control in Descendants(this).Where(c => c is ComboBox or TextBox or CheckBox or Button or Label))
+            check(FitsParents(control, this), $"{name}: {control.AccessibleName ?? control.Text} fits all parent containers.");
+        var serverLabel = _server.Parent!.Controls.OfType<Label>().Single();
+        check(serverLabel.Width >= TextRenderer.MeasureText(serverLabel.Text, serverLabel.Font).Width,
+            name + ": Camera Server label is not truncated.");
+        check(_server.Width >= TextRenderer.MeasureText("Local computer", _server.Font).Width
+            + SystemInformation.VerticalScrollBarWidth * _server.DeviceDpi / 96,
+            name + ": Local computer fits the server dropdown.");
+        check(new[] { _info, _gear, _barcode }.All(b => b.Height == _command.Height && b.Top == _command.Top),
+            name + ": All command buttons match the dropdown height and alignment.");
+    }
+
+    private static bool FitsParents(Control control, Form form)
+    {
+        var bounds = control.RectangleToScreen(control.ClientRectangle);
+        for (var parent = control.Parent; parent is not null; parent = parent.Parent)
+        {
+            if (!parent.RectangleToScreen(parent.ClientRectangle).Contains(bounds)) return false;
+            if (parent == form) break;
+        }
+        return true;
+    }
+
+    private static IEnumerable<Control> Descendants(Control parent)
+    {
+        foreach (Control child in parent.Controls)
+        {
+            yield return child;
+            foreach (var descendant in Descendants(child)) yield return descendant;
+        }
+    }
+
+    private static void ScalePreview(Form form, float factor)
+    {
+        if (factor == 1) return;
+        var fonts = Descendants(form).Prepend(form)
+            .Where(c => c == form || !c.Font.Equals(c.Parent!.Font))
+            .Select(c => (Control: c, Font: c.Font)).ToArray();
+        form.SuspendLayout();
+        form.Scale(new SizeF(factor, factor));
+        foreach (var (control, font) in fonts)
+            control.Font = new Font(font.FontFamily, font.Size * factor, font.Style);
+        form.ResumeLayout(true);
     }
 
     private static void CaptureWindow(Form form, string path)

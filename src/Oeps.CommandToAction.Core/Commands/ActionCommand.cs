@@ -76,7 +76,7 @@ public static class CommandCatalog
                 <label>  [tab]  [tab]  [tab]  '1'  <enter>
 
                 Serial / batch (yyyyxxxxxxxx or yyyyxxxxxx):
-                <prefix>  [tab]  [tab]  <label>  [tab]  '1'  <enter>
+                <prefix>  [tab]  <label>  [tab]  [tab]  '1'  <enter>
 
                 BETWEEN_ACTION: between completed actions.
                 """,

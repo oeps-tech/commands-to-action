@@ -34,7 +34,7 @@ A recognized C message immediately updates the dropdown. Unknown commands leave 
 | --- | --- |
 | Odoo IN | Types the full OEPS product or four-character prefix, waits INIT, then Tab. |
 | Odoo IN Moves | Types the product, moves through four fields, optionally fills serial/batch after the first Tab, sets quantity 1, then Enter. |
-| Odoo OUT Moves | Types the product, moves through three fields, optionally fills serial/batch after the second Tab, sets quantity 1, then Enter. |
+| Odoo OUT Moves | Types the product, optionally fills serial/batch after the first Tab, sends two more Tabs, sets quantity 1, then Enter. |
 | Add Enter and Up | Types raw content, Enter, Up. |
 | Add Right | Types raw content, Right. |
 | Direct | Types raw content without added keys. |
@@ -62,7 +62,7 @@ Odoo IN Moves / serial or batch:
 Odoo OUT Moves / OEPS product:
   label INIT Tab TAB Tab TAB Tab TAB 1 CHAR Enter
 Odoo OUT Moves / serial or batch:
-  prefix INIT Tab TAB Tab TAB label SN Tab TAB 1 CHAR Enter
+  prefix INIT Tab TAB label SN Tab TAB Tab TAB 1 CHAR Enter
 ```
 
 ## Timing and queue behavior

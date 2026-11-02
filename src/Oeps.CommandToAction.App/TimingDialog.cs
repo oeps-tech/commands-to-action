@@ -19,8 +19,10 @@ internal sealed class TimingDialog : Form
 
     public TimingDialog(ActionTimings timings)
     {
+        SuspendLayout();
         Text = "Action timing";
         Font = new Font("Segoe UI", 10);
+        AutoScaleDimensions = new SizeF(96, 96);
         AutoScaleMode = AutoScaleMode.Dpi;
         ClientSize = new Size(480, 324);
         FormBorderStyle = FormBorderStyle.FixedDialog;
@@ -54,6 +56,7 @@ internal sealed class TimingDialog : Form
         layout.Controls.Add(buttons, 0, 7); layout.SetColumnSpan(buttons, 2);
         Controls.Add(layout); AcceptButton = save; CancelButton = cancel;
         SetValues(timings);
+        ResumeLayout(true);
     }
 
     private void SetValues(ActionTimings timings)

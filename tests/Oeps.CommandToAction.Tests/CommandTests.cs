@@ -49,12 +49,15 @@ public static class CommandTests
     }
 
     [Test]
-    public static void OutgoingMovesHaveThreeTabsAndSerialInThirdField()
+    public static void OutgoingMovesHaveThreeTabsAndSerialInSecondField()
     {
         Assert.Equal("text:OEPS-Ab09|wait:1000|Tab|wait:200|Tab|wait:200|Tab|wait:200|text:1|wait:100|Enter",
             Describe(ActionCommand.OdooOutMoves, "OEPS-Ab09"));
-        Assert.Equal("text:Ab09|wait:1000|Tab|wait:200|Tab|wait:200|text:Ab0912345678|wait:100|Tab|wait:200|text:1|wait:100|Enter",
-            Describe(ActionCommand.OdooOutMoves, "Ab0912345678"));
+        foreach (var raw in new[] { "Ab09123456", "Ab0912345678" })
+            Assert.Equal($"text:Ab09|wait:1000|Tab|wait:200|text:{raw}|wait:100|Tab|wait:200|Tab|wait:200|text:1|wait:100|Enter",
+                Describe(ActionCommand.OdooOutMoves, raw));
+        Assert.True(CommandCatalog.GetHelpText(ActionCommand.OdooOutMoves)
+            .Contains("<prefix>  [tab]  <label>  [tab]  [tab]  '1'  <enter>"));
     }
 
     [Test]
