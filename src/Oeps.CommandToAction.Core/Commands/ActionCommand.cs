@@ -30,7 +30,7 @@ public static class CommandCatalog
         new CommandDescriptor(ActionCommand.Direct, "Direct",
             "Types the raw label exactly, without adding any keys."),
         new CommandDescriptor(ActionCommand.Disable, "Disable",
-            "Ignores incoming raw labels. Command labels can still select another command. Jobs already queued keep the command selected when they arrived.")
+            "Turns off typing for incoming raw labels. Command labels can still select another command. Labels 4 and 5 use the browser switches in Action settings.")
     });
 
     public static bool TryParse(string? name, out ActionCommand command)

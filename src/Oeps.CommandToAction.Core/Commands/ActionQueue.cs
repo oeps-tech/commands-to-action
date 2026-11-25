@@ -25,6 +25,7 @@ public sealed class ActionQueue : IAsyncDisposable
     private readonly CancellationTokenSource _shutdown = new();
     private readonly IActionKeyboard _keyboard;
     private readonly IActionClock _clock;
+    private readonly Action<Uri> _openBrowser;
     private readonly Task _worker;
     private CancellationTokenSource? _activeCancellation;
     private TaskCompletionSource? _activeFinished;
@@ -36,10 +37,11 @@ public sealed class ActionQueue : IAsyncDisposable
     private int _cancellationRequests;
     private bool _disposed;
 
-    public ActionQueue(IActionKeyboard keyboard, IActionClock? clock = null)
+    public ActionQueue(IActionKeyboard keyboard, IActionClock? clock = null, Action<Uri>? openBrowser = null)
     {
         _keyboard = keyboard ?? throw new ArgumentNullException(nameof(keyboard));
         _clock = clock ?? new SystemActionClock();
+        _openBrowser = openBrowser ?? OpenInDefaultBrowser;
         _worker = Task.Run(RunAsync);
     }
 
@@ -131,6 +133,9 @@ public sealed class ActionQueue : IAsyncDisposable
                         case KeyStep key:
                             await _keyboard.PressKeyAsync(key.Key, cancellation.Token).ConfigureAwait(false);
                             break;
+                        case OpenOdooRecordStep record:
+                            _openBrowser(record.Url);
+                            break;
                         case DelayStep delay when delay.Milliseconds > 0:
                             await _clock.DelayAsync(TimeSpan.FromMilliseconds(delay.Milliseconds), cancellation.Token).ConfigureAwait(false);
                             break;
@@ -157,6 +162,11 @@ public sealed class ActionQueue : IAsyncDisposable
     }
 
     private ActionQueueState Snapshot() => new(_jobs.Count, _activeJob, _status, _error);
+
+    private static void OpenInDefaultBrowser(Uri url)
+    {
+        using var process = Process.Start(new ProcessStartInfo(url.AbsoluteUri) { UseShellExecute = true });
+    }
 
     private void Notify()
     {

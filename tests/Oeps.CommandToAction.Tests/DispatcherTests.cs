@@ -1,6 +1,7 @@
 using System.Collections.Concurrent;
 using System.Text.Json;
 using Oeps.CommandToAction.Core.Commands;
+using Oeps.CommandToAction.Core.Configuration;
 using Oeps.CommandToAction.Core.Scanning;
 
 namespace Oeps.CommandToAction.Tests;
@@ -31,7 +32,7 @@ public static class DispatcherTests
     public static async Task StructuredVersionsAndMalformedMessagesDoNotTypeOrChangeTheSelection()
     {
         var keyboard = new Recorder();
-        await using var queue = new ActionQueue(keyboard);
+        await using var queue = new ActionQueue(keyboard, openBrowser: url => keyboard.Calls.Enqueue(url.AbsoluteUri));
         var dispatcher = new LabelDispatcher(queue);
         dispatcher.SelectCommand(ActionCommand.Direct);
         foreach (var json in new[]
@@ -39,16 +40,68 @@ public static class DispatcherTests
             "{\"label_version\":1,\"raw\":\"not an X label\"}",
             "{\"label_version\":2,\"command\":\"Disable\"}",
             "{\"label_version\":3,\"raw\":\"not an X label\"}",
+            """{"label_version":"4","sales_order_id":312,"document_name":"S/1"}""",
             "{\"label_version\":\"future\",\"raw\":\"not an X label\"}"
         }) Assert.Equal(DispatchResult.Ignored, dispatcher.HandleJson(json));
         foreach (var json in new[]
         {
             "broken JSON", "[]", "null", "{}", "{\"label_version\":\"C\"}",
             "{\"label_version\":\"C\",\"command\":null}",
-            "{\"label_version\":\"X\",\"raw\":123}", "{\"label_version\":\"X\"}"
+            "{\"label_version\":\"X\",\"raw\":123}", "{\"label_version\":\"X\"}",
+            """{"label_version":4,"out_id":312,"out_number":"OUT/1"}""",
+            """{"label_version":4,"sales_order_id":"00312","document_name":"S/1"}""",
+            """{"label_version":5,"out_id":0,"out_number":"OUT/1"}""",
+            """{"label_version":5,"out_id":2147483648,"out_number":"OUT/1"}"""
         }) Assert.Equal(DispatchResult.Invalid, dispatcher.HandleJson(json));
         Assert.Equal(ActionCommand.Direct, dispatcher.SelectedCommand);
         Assert.Equal(0, keyboard.Calls.Count);
+    }
+
+    [Test]
+    public static async Task BrowserSwitchesApplyIndependentlyToNewScansAndSurviveRestart()
+    {
+        const string order = """{"label_version":4,"sales_order_id":312,"document_name":"S/999"}""";
+        const string delivery = """{"label_version":5,"out_id":3854,"out_number":"WH/OUT/1"}""";
+        string path = Path.GetTempFileName();
+        try
+        {
+            // Upgrade a user's existing settings, which have no browser switches.
+            File.WriteAllText(path, """{"useReader":false,"timings":{"initMs":723,"betweenActionMs":0}}""");
+            var settings = UserSettings.Load(path);
+            Assert.True(settings.OpenSalesOrders && settings.OpenDeliveries);
+            settings.OpenSalesOrders = false;
+            settings.Save(path);
+            var saved = UserSettings.Load(path);
+            Assert.False(saved.OpenSalesOrders);
+            Assert.True(saved.OpenDeliveries);
+            Assert.False(saved.UseReader);
+            Assert.Equal(723, saved.Timings.InitMs);
+
+            var keyboard = new Recorder();
+            var opened = new ConcurrentQueue<string>();
+            var finished = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+            await using var queue = new ActionQueue(keyboard, openBrowser: url => opened.Enqueue(url.AbsoluteUri));
+            var dispatcher = new LabelDispatcher(queue, saved);
+            queue.StateChanged += state =>
+            {
+                if (state.Status == "Completed" && opened.Count == 2) finished.TrySetResult();
+            };
+            Assert.Equal(DispatchResult.Ignored, dispatcher.HandleJson(order));
+            Assert.Equal(DispatchResult.Queued, dispatcher.HandleJson(delivery));
+
+            saved.OpenSalesOrders = true;
+            saved.OpenDeliveries = false;
+            saved.Save(path);
+            dispatcher.ApplySettings(UserSettings.Load(path));
+            Assert.Equal(DispatchResult.Ignored, dispatcher.HandleJson(delivery));
+            Assert.Equal(DispatchResult.Queued, dispatcher.HandleJson(order));
+            await finished.Task.WaitAsync(TimeSpan.FromSeconds(2));
+            Assert.Equal("https://oeps.thinkopen.solutions/odoo/stock.picking/3854|https://oeps.thinkopen.solutions/odoo/sale.order/312",
+                string.Join("|", opened));
+            Assert.Equal(ActionCommand.Disable, dispatcher.SelectedCommand);
+            Assert.Equal(0, keyboard.Calls.Count);
+        }
+        finally { File.Delete(path); }
     }
 
     [Test]

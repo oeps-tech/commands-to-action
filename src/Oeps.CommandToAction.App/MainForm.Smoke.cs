@@ -1,6 +1,7 @@
 using System.Collections.Concurrent;
 using System.Text.Json;
 using Oeps.CommandToAction.Core.Commands;
+using Oeps.CommandToAction.Core.Configuration;
 using Oeps.CommandToAction.Core.Scanning;
 
 namespace Oeps.CommandToAction.App;
@@ -8,6 +9,7 @@ namespace Oeps.CommandToAction.App;
 internal sealed partial class MainForm
 {
     private SmokeKeyboard? _smokeKeyboard;
+    private readonly ConcurrentQueue<Uri> _smokeBrowserLinks = new();
     private int _smokeBarcodeNotifications;
 
     private void RecordSmokeBarcode(Bitmap image) => image.Save(
@@ -114,17 +116,9 @@ internal sealed partial class MainForm
                 CaptureWindow(dialog, Path.Combine(_paths.UserDataRoot, "command-info.png"));
                 dialog.Close();
             }
-            using (var dialog = new TimingDialog(_settings.Timings))
-            {
-                dialog.Show(this);
-                await Task.Delay(100);
-                Check(dialog.Timings == _settings.Timings, "Timing dialog preserves all five intervals.");
-                Check(new ActionTimings().TabMs == 200, "TAB default is 200 ms.");
-                CaptureWindow(dialog, Path.Combine(_paths.UserDataRoot, "timing-dialog.png"));
-                dialog.Close();
-            }
+            await CheckBrowserSettingsAsync(Check);
             await CheckScaledLayoutsAsync(Check);
-            report.Add("No real scanner connection, native keyboard injection or user clipboard changes were used.");
+            report.Add("Scanner, keyboard, browser and clipboard actions were simulated.");
         }
         catch (Exception ex) { report.Add("FAIL " + ex); Environment.ExitCode = 1; }
         finally
@@ -132,6 +126,69 @@ internal sealed partial class MainForm
             File.WriteAllLines(Path.Combine(_paths.UserDataRoot, "ui-smoke.txt"), report);
             Close();
         }
+    }
+
+    private async Task CheckBrowserSettingsAsync(Action<bool, string> check)
+    {
+        const string deliveryUrl = "https://oeps.thinkopen.solutions/odoo/stock.picking/3854";
+        bool originalOrders = _settings.OpenSalesOrders, originalDeliveries = _settings.OpenDeliveries;
+        static CheckBox Toggle(Form dialog, string name) => (CheckBox)dialog.Controls.Find(name, true).Single();
+        UseGear(dialog =>
+        {
+            check(dialog.Timings == _settings.Timings && new ActionTimings().TabMs == 200, "The cogwheel opens the saved timing settings.");
+            check(dialog.OpenSalesOrders == originalOrders && dialog.OpenDeliveries == originalDeliveries, "Both browser switches show their saved values.");
+            foreach (var (name, example) in new[] { ("openSalesOrders", "https://oeps.thinkopen.solutions/odoo/sale.order/312"), ("openDeliveries", deliveryUrl) })
+            {
+                var toggle = Toggle(dialog, name);
+                var row = (TableLayoutPanel)toggle.Parent!;
+                var info = row.GetControlFromPosition(1, row.GetRow(toggle)) as Button;
+                check(info?.Text == "i" && info.AccessibleDescription!.Contains(example), $"{toggle.Text} has adjacent help with its example link.");
+            }
+            CaptureWindow(dialog, Path.Combine(_paths.UserDataRoot, "action-settings.png"));
+            Toggle(dialog, "openSalesOrders").Checked = false;
+            Toggle(dialog, "openDeliveries").Checked = true;
+        }, save: true);
+        var saved = UserSettings.Load(_paths.SettingsFile);
+        check(!saved.OpenSalesOrders && saved.OpenDeliveries, "Save stores the two browser choices independently.");
+        check(_dispatcher.HandleJson("""{"label_version":4,"sales_order_id":312,"document_name":"S/1"}""") == DispatchResult.Ignored
+            && _dispatcher.HandleJson("""{"label_version":5,"out_id":3854,"out_number":"OUT/1"}""") == DispatchResult.Queued,
+            "Saved browser choices apply to the next scans while the keyboard command is Disable.");
+        var deadline = DateTime.UtcNow.AddSeconds(3);
+        while (_smokeBrowserLinks.IsEmpty && DateTime.UtcNow < deadline) await Task.Delay(20);
+        check(_smokeBrowserLinks.TryDequeue(out var opened) && opened.AbsoluteUri == deliveryUrl && _smokeBrowserLinks.IsEmpty,
+            "Only the delivery reaches the browser.");
+
+        UseGear(dialog =>
+        {
+            Descendants(dialog).OfType<Button>().Single(b => b.Text == "Defaults").PerformClick();
+            check(dialog.OpenSalesOrders && dialog.OpenDeliveries, "Defaults enables both browser actions.");
+        }, save: false);
+        UseGear(dialog =>
+        {
+            check(!dialog.OpenSalesOrders && dialog.OpenDeliveries, "Cancel preserves the previous choices.");
+            Toggle(dialog, "openSalesOrders").Checked = originalOrders;
+            Toggle(dialog, "openDeliveries").Checked = originalDeliveries;
+        }, save: true);
+    }
+
+    private void UseGear(Action<ActionSettingsDialog> edit, bool save)
+    {
+        using var timer = new System.Windows.Forms.Timer { Interval = 30 };
+        Exception? failure = null;
+        timer.Tick += (_, _) =>
+        {
+            if (OwnedForms.OfType<ActionSettingsDialog>().FirstOrDefault() is not { } dialog) return;
+            timer.Stop();
+            try
+            {
+                edit(dialog);
+                (save ? dialog.AcceptButton : dialog.CancelButton)!.PerformClick();
+            }
+            catch (Exception ex) { failure = ex; dialog.Close(); }
+        };
+        timer.Start();
+        _gear.PerformClick();
+        if (timer.Enabled || failure is not null) throw new InvalidOperationException("Could not verify Action settings.", failure);
     }
 
     private async Task CheckScaledLayoutsAsync(Action<bool, string> check)
@@ -158,16 +215,18 @@ internal sealed partial class MainForm
             WindowState = FormWindowState.Normal;
             Size = normalSize;
 
-            using var timing = new TimingDialog(_settings.Timings);
+            using var timing = new ActionSettingsDialog(_settings);
             using var info = new CommandInfoDialog(ActionCommand.OdooOutMoves);
             foreach (var dialog in new Form[] { timing, info })
             {
                 ScalePreview(dialog, scale);
                 dialog.Show(this);
                 await Task.Delay(100);
-                foreach (var control in Descendants(dialog).Where(c => c is Label or Button or NumericUpDown))
+                foreach (var control in Descendants(dialog).Where(c => c is Label or Button or NumericUpDown or CheckBox))
                 {
                     check(FitsParents(control, dialog), $"{name}: {dialog.Text} / {control.Text} fits its containers.");
+                    if (control is CheckBox toggle)
+                        check(toggle.Width >= toggle.GetPreferredSize(Size.Empty).Width, $"{name}: {toggle.Text} is readable.");
                     if (control is Label or Button)
                         check(control.ClientSize.Width >= TextRenderer.MeasureText(control.Text, control.Font).Width
                             && control.ClientSize.Height >= control.Font.Height,

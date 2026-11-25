@@ -1,4 +1,12 @@
-# OEPS Command to Action 0.1.5
+# OEPS Command to Action 0.1.6
+
+- Scan label 4 to open its sales order or label 5 to open its outgoing delivery in your default browser. Each link uses the numeric Odoo record ID with leading zeros removed.
+- Both actions start enabled. Open the cogwheel, then use **Open in browser** to change either switch. Each has an **i** button with a worked example.
+- Use a scanner server with support for labels 4 and 5. The matching client SDK is bundled with this version.
+
+For a new installation, download **Oeps.CommandToAction-0.1.6-setup-win-x64.msi**. If the app is already installed, restart it from the OEPS shortcut to receive the update.
+
+## 0.1.5
 
 - Odoo OUT Moves now types serial/batch labels after the first Tab: `<prefix> [tab] <label> [tab] [tab] '1' <enter>`. Product-only OEPS labels keep their existing sequence. Command help matches the new order.
 - Correct DPI scaling in the main window, command info and timing dialogs. Layout dimensions and text now scale together, preventing cropped labels and command buttons on displays with increased scaling.

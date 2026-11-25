@@ -26,7 +26,7 @@ internal sealed partial class MainForm : Form
     private readonly CheckBox _reader = new() { Text = "Use Reader:", AutoSize = true, CheckAlign = ContentAlignment.MiddleRight };
     private readonly ComboBox _command = new() { DropDownStyle = ComboBoxStyle.DropDownList, Dock = DockStyle.Fill, AccessibleName = "Command" };
     private readonly Button _info = SmallButton("i", "Explain selected command");
-    private readonly Button _gear = SmallButton("⚙", "Configure action timing");
+    private readonly Button _gear = SmallButton("⚙", "Configure timing and Odoo browser actions");
     private readonly Button _barcode = SmallButton("", "Copy command Data Matrix");
     private readonly Action<Bitmap> _copyBarcodeImage;
     private readonly Action _showBarcodeCopied;
@@ -50,16 +50,18 @@ internal sealed partial class MainForm : Form
         SuspendLayout();
         (_config, _paths, _http, _args) = (config, paths, http, args);
         _settings = UserSettings.Load(paths.SettingsFile);
-        IActionKeyboard keyboard;
-        if (args.Contains("--ui-smoke")) keyboard = _smokeKeyboard = new SmokeKeyboard();
+        if (args.Contains("--ui-smoke"))
+        {
+            _smokeKeyboard = new SmokeKeyboard();
+            _queue = new ActionQueue(_smokeKeyboard, openBrowser: _smokeBrowserLinks.Enqueue);
+        }
         else
         {
             var native = new WindowsActionKeyboard();
             native.WaitingForTargetChanged += waiting => Ui(() => { _waitingForTarget = waiting; ShowQueueState(); });
-            keyboard = native;
+            _queue = new ActionQueue(native);
         }
-        _queue = new ActionQueue(keyboard);
-        _dispatcher = new LabelDispatcher(_queue) { Timings = _settings.Timings };
+        _dispatcher = new LabelDispatcher(_queue, _settings);
         _copyBarcodeImage = args.Contains("--ui-smoke") ? RecordSmokeBarcode : CommandBarcodeImage.CopyToClipboard;
         _showBarcodeCopied = args.Contains("--ui-smoke") ? () => _smokeBarcodeNotifications++ :
             () => MessageBox.Show(this, "Data Matrix code copied to clipboard.", "OEPS Command to Action", MessageBoxButtons.OK, MessageBoxIcon.Information);
@@ -108,14 +110,14 @@ internal sealed partial class MainForm : Form
         _connect.Click += async (_, _) => { _connectionOperation = ToggleConnectionAsync(); await _connectionOperation; };
         _discard.Click += async (_, _) => { _discardOperation = DiscardQueueAsync(); await _discardOperation; };
         _info.Click += (_, _) => ShowCommandInfo();
-        _gear.Click += (_, _) => ConfigureTiming();
+        _gear.Click += (_, _) => ConfigureActions();
         _barcode.Click += (_, _) => CopyCommandBarcode();
         _barcode.Paint += (_, e) => PaintBarcodeIcon(e.Graphics);
         _update.LinkClicked += (_, _) => _actionStatus.Text = "Restart from the OEPS shortcut to install the update. Choose ‘Not now’ to skip.";
         _tip.SetToolTip(_camera, "Camera input is reserved for future use and is disabled.");
         _tip.SetToolTip(_reader, $"Barcode reader on port {config.ReaderPort}");
         _tip.SetToolTip(_info, "What does this command do?");
-        _tip.SetToolTip(_gear, "Set action delays");
+        _tip.SetToolTip(_gear, "Set action delays and Odoo browser actions");
         _tip.SetToolTip(_barcode, "Copy a Data Matrix image that selects this command");
         _tip.SetToolTip(_discard, "Stop the current action and discard pending labels. Keep the reader connected.");
         _timer.Tick += async (_, _) =>
@@ -248,12 +250,14 @@ internal sealed partial class MainForm : Form
         }
     }
 
-    private void ConfigureTiming()
+    private void ConfigureActions()
     {
-        using var dialog = new TimingDialog(_dispatcher.Timings) { Icon = Icon };
+        using var dialog = new ActionSettingsDialog(_settings) { Icon = Icon };
         if (dialog.ShowDialog(this) != DialogResult.OK) return;
         _settings.Timings = dialog.Timings;
-        _dispatcher.Timings = dialog.Timings;
+        _settings.OpenSalesOrders = dialog.OpenSalesOrders;
+        _settings.OpenDeliveries = dialog.OpenDeliveries;
+        _dispatcher.ApplySettings(_settings);
         SaveSettings();
     }
 
@@ -292,10 +296,10 @@ internal sealed partial class MainForm : Form
         _connectionStatus.Text = $"Connecting to {(local ? "127.0.0.1" : host)}:{_config.ReaderPort}…";
         _connectionCancellation = CancellationTokenSource.CreateLinkedTokenSource(_lifetime.Token);
         var scanner = new ScannerConnection();
-        scanner.JsonReceived += json =>
+        scanner.LabelReceived += label =>
         {
             lock (_sessionGate)
-                if (_accepting && ReferenceEquals(_scanner, scanner)) _dispatcher.HandleJson(json);
+                if (_accepting && ReferenceEquals(_scanner, scanner)) _dispatcher.HandleLabel(label);
         };
         scanner.StateChanged += state => Ui(() =>
         {
@@ -371,9 +375,9 @@ internal sealed partial class MainForm : Form
         _queueStatus.Text = $"Queue: {state.PendingCount}" + (state.ActiveJob is null ? "" : " · running");
         if (state.Error is not null) return;
         if (_waitingForTarget && state.ActiveJob is not null) _actionStatus.Text = "Action waiting. Focus the destination field and release modifier keys.";
-        else if (state.ActiveJob is not null) _actionStatus.Text = "Executing " + CommandCatalog.All.Single(c => c.Command == state.ActiveJob.Command).Name + "…";
+        else if (state.ActiveJob is not null) _actionStatus.Text = "Executing " + state.ActiveJob.Name + "…";
         else if (_connected) _actionStatus.Text = _dispatcher.SelectedCommand == ActionCommand.Disable
-            ? "Disable selected. Raw labels are ignored; command labels remain active." : "Ready for the next label.";
+            ? "Disable selected. Keyboard typing is off." : "Ready for the next label.";
     }
 
     private async Task CheckReleaseAsync()

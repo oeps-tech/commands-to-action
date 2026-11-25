@@ -2,4 +2,7 @@
   <PropertyGroup>
     <TargetFramework>net10.0</TargetFramework>
   </PropertyGroup>
+  <ItemGroup>
+    <Reference Include="Scanner.Contracts"><HintPath>../../client-sdk/Scanner.Contracts.dll</HintPath><Private>true</Private></Reference>
+  </ItemGroup>
 </Project>

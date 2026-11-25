@@ -9,6 +9,8 @@ public sealed class UserSettings
     public bool CameraExternal { get; set; }
     public string CameraIp { get; set; } = "";
     public bool UseReader { get; set; } = true;
+    public bool OpenSalesOrders { get; set; } = true;
+    public bool OpenDeliveries { get; set; } = true;
     public ActionTimings Timings { get; set; } = new();
     [JsonIgnore] public string? LoadError { get; private set; }
 

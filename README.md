@@ -1,10 +1,10 @@
 # OEPS Command to Action
 
-A compact Windows desktop application based on OEPS Raw Material Sticker. It receives scanner commands and raw labels through the bundled client SDK and types actions into the application that currently has keyboard focus.
+A compact Windows desktop application based on OEPS Raw Material Sticker. It can type raw labels into the focused application and open scanned Odoo sales orders and outgoing deliveries in the default browser.
 
 ## Install and run
 
-Build output is in `artifacts/`. Install `Oeps.CommandToAction-0.1.4-setup-win-x64.msi` and launch **OEPS Command to Action** from the Start menu or desktop shortcut. The per-user installer includes the .NET 10 desktop runtime. It can coexist with Raw Material Sticker.
+Build output is in `artifacts/`. Install `Oeps.CommandToAction-0.1.6-setup-win-x64.msi` and launch **OEPS Command to Action** from the Start menu or desktop shortcut. The per-user installer includes the .NET 10 desktop runtime. It can coexist with Raw Material Sticker.
 
 For development, open `Oeps.CommandToAction.sln` with a .NET 10 SDK or double-click `Run.cmd`. The script uses `.tools/dotnet`, the existing SDK in the sibling `raw-material-sticker` repository, or the system SDK. `Run.cmd` runs source directly; use the installed shortcut for update installation.
 
@@ -13,11 +13,22 @@ For development, open `Oeps.CommandToAction.sln` with a .NET 10 SDK or double-cl
 3. Select a command, then click **Connect**. The button becomes **Disconnect**.
 4. Focus the destination field in Odoo or another application and scan labels.
 
-The initial command is **Disable** on every launch. The reader uses port **8766**; an `appsettings.json` override can change `readerPort`. The camera port is never opened. The **i** button describes the current command. The **gear** button edits shared timing values, saved per user.
+The initial keyboard command is **Disable** on every launch. The reader uses port **8766** by default. An `appsettings.json` override can change `readerPort`. The **i** button describes the selected command. The **gear** opens **Action settings** for keyboard timings and Odoo browser actions.
 
 The third **barcode** button copies a Data Matrix image for the currently selected command, then shows “Data Matrix code copied to clipboard.” Paste it into your document or label layout. Every command, including Disable, has its own code. The code contains `C*<exact command name>*<CRC-32>` so scanning it through the scanner server selects that command in this app. Copying works while disconnected and does not execute an action.
 
 Images are 1024 × 1024 pixels at 300 DPI, with a white quiet zone and integer-sized black modules. The clipboard carries both bitmap and PNG formats. Keep the white border intact and avoid stretching or blurring the code when laying out printed labels. Generation is local, using ZXing.Net 0.16.11; no label data is uploaded.
+
+## Open Odoo documents
+
+Connect to a scanner server that recognizes labels **4** and **5**. Each valid scan opens the corresponding record in the Windows default browser. The scanner reads the record ID as an integer, so leading zeros on the printed label drop out of the link.
+
+| Label | ID on the barcode | Page opened |
+| --- | --- | --- |
+| 4 · Sales order | `sales_order_id` of `00312` | `https://oeps.thinkopen.solutions/odoo/sale.order/312` |
+| 5 · Outgoing delivery | `out_id` of `03854` | `https://oeps.thinkopen.solutions/odoo/stock.picking/3854` |
+
+Both actions start enabled, including when upgrading from older settings. Under **gear → Open in browser**, use the checkbox for each label and click **Save**. Each **i** button explains its action. The switches apply to new scans with any keyboard command, including **Disable**. Browser and keyboard actions share the same queue. For a browser action the interval before the next job starts when Windows accepts the link.
 
 ## Commands and labels
 
@@ -100,7 +111,7 @@ Update releases come from `oeps-tech/commands-to-action` and need both `Oeps.Com
 ```powershell
 dotnet build Oeps.CommandToAction.sln -c Release
 dotnet run --project tests/Oeps.CommandToAction.Tests -c Release
-powershell -ExecutionPolicy Bypass -File scripts/package.ps1 -Version 0.1.4
+powershell -ExecutionPolicy Bypass -File scripts/package.ps1 -Version 0.1.6
 ```
 
 Pass `-Dotnet <path-to-dotnet.exe>` to the packaging script to use a private SDK. Packaging runs the test suite and produces the MSI, application ZIP and checksums under `artifacts/`. WiX 4.0.6 is used to build the MSI. Reusing an existing package version requires archiving the existing output first.

@@ -1,4 +1,10 @@
-# Verification — 28 October 2026
+# Verification
+
+## 0.1.6 Odoo document links (24 November 2026)
+
+- All 40 automated tests passed. A loopback scanner sent both printed examples with leading zeros through the bundled SDK. The recorded browser calls used the exact sales order and delivery URLs in scan order, including repeated delivery scans with the keyboard dropdown set to Disable.
+- All 436 GUI checks passed. The cogwheel opened the settings dialog, each checkbox had its own example link, and Save, Cancel and Defaults worked. The new controls fit at simulated display scales from 100% to 200%. The report and settings preview are in `.local/ui-smoke-016/`.
+- The automated checks use a recording browser. Physical scans and opening a record with a signed-in Odoo session are covered in `manual-verification.md`.
 
 ## 0.1.5 outgoing sequence and display scaling (2 November 2026)
 

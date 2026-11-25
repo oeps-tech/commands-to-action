@@ -9,20 +9,20 @@
         </member>
         <member name="T:Scanner.Contracts.LabelData">
             <summary>Versioned data. Use IsCommand, IsRaw or LabelVersion to select fields. Missing supplier fields are explicit JSON nulls.</summary>
-            <param name="LabelVersion">1 for materials, 2 for Odoo, 3 for suppliers; -1 represents commands C and 0 represents raw X in the C# API.</param>
+            <param name="LabelVersion">1 for materials, 2 for Odoo sales order and OUT, 3 for suppliers, 4 for sales order, 5 for OUT; -1 represents commands C and 0 represents raw X in the C# API.</param>
             <param name="OepsPn">Version 1 part number.</param>
             <param name="Lot">Version 1 lot.</param>
             <param name="Quantity">Version 1 exact quantity text, without conversion or rounding.</param>
         </member>
         <member name="M:Scanner.Contracts.LabelData.#ctor(System.Int32,System.String,System.String,System.String)">
             <summary>Versioned data. Use IsCommand, IsRaw or LabelVersion to select fields. Missing supplier fields are explicit JSON nulls.</summary>
-            <param name="LabelVersion">1 for materials, 2 for Odoo, 3 for suppliers; -1 represents commands C and 0 represents raw X in the C# API.</param>
+            <param name="LabelVersion">1 for materials, 2 for Odoo sales order and OUT, 3 for suppliers, 4 for sales order, 5 for OUT; -1 represents commands C and 0 represents raw X in the C# API.</param>
             <param name="OepsPn">Version 1 part number.</param>
             <param name="Lot">Version 1 lot.</param>
             <param name="Quantity">Version 1 exact quantity text, without conversion or rounding.</param>
         </member>
         <member name="P:Scanner.Contracts.LabelData.LabelVersion">
-            <summary>1 for materials, 2 for Odoo, 3 for suppliers; -1 represents commands C and 0 represents raw X in the C# API.</summary>
+            <summary>1 for materials, 2 for Odoo sales order and OUT, 3 for suppliers, 4 for sales order, 5 for OUT; -1 represents commands C and 0 represents raw X in the C# API.</summary>
         </member>
         <member name="P:Scanner.Contracts.LabelData.OepsPn">
             <summary>Version 1 part number.</summary>
@@ -48,17 +48,23 @@
         <member name="P:Scanner.Contracts.LabelData.Raw">
             <summary>Version X exact decoded text, including control characters. No checksum or content validation.</summary>
         </member>
+        <member name="M:Scanner.Contracts.LabelData.FromSalesOrder(System.Int32,System.String)">
+            <summary>Creates version 4 sales order data using the printed document_name.</summary>
+        </member>
+        <member name="M:Scanner.Contracts.LabelData.FromOut(System.Int32,System.String)">
+            <summary>Creates version 5 OUT data using the stock.picking record ID and printed number.</summary>
+        </member>
         <member name="P:Scanner.Contracts.LabelData.SalesOrderId">
-            <summary>Version 2 internal sale.order record ID.</summary>
+            <summary>Version 2/4 internal sale.order record ID.</summary>
         </member>
         <member name="P:Scanner.Contracts.LabelData.DocumentName">
-            <summary>Version 2 printed sales order document_name, for example S/2680; not Odoo's name field.</summary>
+            <summary>Version 2/4 printed sales order document_name, for example S/2680; not Odoo's name field.</summary>
         </member>
         <member name="P:Scanner.Contracts.LabelData.OutId">
-            <summary>Version 2 internal stock.picking record ID.</summary>
+            <summary>Version 2/5 internal stock.picking record ID.</summary>
         </member>
         <member name="P:Scanner.Contracts.LabelData.OutNumber">
-            <summary>Version 2 printed delivery number, for example WH/OUT/00567.</summary>
+            <summary>Version 2/5 printed delivery number, for example WH/OUT/00567.</summary>
         </member>
         <member name="M:Scanner.Contracts.LabelData.#ctor(System.Int32,System.Int32,System.String,System.Int32,System.String)">
             <summary>Creates version 2 sales order/delivery data.</summary>

@@ -8,11 +8,7 @@ public sealed record TextStep(string Text) : ActionStep;
 public sealed record KeyStep(ActionKey Key) : ActionStep;
 public sealed record DelayStep(int Milliseconds) : ActionStep;
 
-public sealed record ActionJob(
-    ActionCommand Command,
-    string Raw,
-    ActionTimings Timings,
-    IReadOnlyList<ActionStep> Steps);
+public sealed record ActionJob(string Name, ActionTimings Timings, IReadOnlyList<ActionStep> Steps);
 
 public static partial class ActionPlanner
 {
@@ -78,7 +74,7 @@ public static partial class ActionPlanner
                 throw new ArgumentOutOfRangeException(nameof(command));
         }
 
-        job = new ActionJob(command, raw, timings with { }, steps.AsReadOnly());
+        job = new ActionJob(CommandCatalog.Get(command).Name, timings with { }, steps.AsReadOnly());
         return true;
     }
 }

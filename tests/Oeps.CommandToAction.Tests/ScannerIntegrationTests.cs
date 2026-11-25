@@ -8,29 +8,32 @@ using System.Text.Json;
 using Oeps.CommandToAction.Core.Commands;
 using Oeps.CommandToAction.Core.Scanning;
 using Scanner.Client;
+using Scanner.Contracts;
 
 namespace Oeps.CommandToAction.Tests;
 
 public static class ScannerIntegrationTests
 {
     [Test]
-    public static async Task BundledSdkRoutesCommandsAndRepeatedRawLabelsInWireOrder()
+    public static async Task BundledSdkRoutesKeyboardAndBrowserActionsInWireOrder()
     {
         using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(8));
         var token = timeout.Token;
         const string escaped = "café \"\\\t\r\n😀 +^%{}";
         string Command(string value) => JsonSerializer.Serialize(new { label_version = "C", command = value });
         string Raw(string value) => JsonSerializer.Serialize(new { label_version = "X", raw = value });
+        var order = ProtocolJson.Serialize(LabelClassifier.Classify("4*00312*S/2680*4201DA08").Data);
+        var delivery = ProtocolJson.Serialize(LabelClassifier.Classify("5*03854*WH/OUT/00567*3FB1E11C").Data);
         var messages = new[]
         {
-            Command("Direct"), Raw("first"), Raw("first"), Raw(escaped),
+            Command("Direct"), Raw("first"), Raw("first"), order, Raw(escaped),
             Command("Add Right"), Raw("last"),
             "{\"label_version\":1,\"oeps_pn\":\"OEPS123456\",\"lot\":\"1234-ABC-A1B2\",\"quantity\":\"1\"}",
-            Command("Disable"), Raw("ignored"), Command("Direct"), Raw("tail")
+            Command("Disable"), Raw("ignored"), delivery, delivery, Command("Direct"), Raw("tail")
         };
 
         var keyboard = new RecordingKeyboard();
-        await using var queue = new ActionQueue(keyboard);
+        await using var queue = new ActionQueue(keyboard, openBrowser: url => keyboard.Events.Enqueue(url.AbsoluteUri));
         var dispatcher = new LabelDispatcher(queue)
         {
             Timings = new ActionTimings { InitMs = 0, SnMs = 0, TabMs = 0, CharMs = 0, BetweenActionMs = 0 }
@@ -42,7 +45,7 @@ public static class ScannerIntegrationTests
         var drained = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         queue.StateChanged += state =>
         {
-            if (state.PendingCount == 0 && state.ActiveJob is null && keyboard.Events.Count == 6) drained.TrySetResult();
+            if (state.PendingCount == 0 && state.ActiveJob is null && keyboard.Events.Count == 9) drained.TrySetResult();
         };
 
         var listener = new TcpListener(IPAddress.Loopback, 0);
@@ -51,9 +54,9 @@ public static class ScannerIntegrationTests
         var server = ServeAsync(listener, messages, token);
         await using var scanner = new ScannerConnection();
         var count = 0;
-        scanner.JsonReceived += json =>
+        scanner.LabelReceived += label =>
         {
-            results.Enqueue(dispatcher.HandleJson(json));
+            results.Enqueue(dispatcher.HandleLabel(label));
             if (Interlocked.Increment(ref count) == messages.Length) received.TrySetResult();
         };
         try
@@ -66,9 +69,12 @@ public static class ScannerIntegrationTests
             keyboard.Release.TrySetResult();
             await drained.Task.WaitAsync(token);
             Assert.Equal("Direct|AddRight|Disable|Direct", string.Join("|", commands));
-            Assert.Equal("CommandSelected|Queued|Queued|Queued|CommandSelected|Queued|Ignored|CommandSelected|Ignored|CommandSelected|Queued",
+            Assert.Equal("CommandSelected|Queued|Queued|Queued|Queued|CommandSelected|Queued|Ignored|CommandSelected|Ignored|Queued|Queued|CommandSelected|Queued",
                 string.Join("|", results));
-            Assert.Equal("T:first|T:first|T:" + escaped + "|T:last|K:Right|T:tail", string.Join("|", keyboard.Events));
+            const string orderUrl = "https://oeps.thinkopen.solutions/odoo/sale.order/312";
+            const string deliveryUrl = "https://oeps.thinkopen.solutions/odoo/stock.picking/3854";
+            Assert.Equal($"T:first|T:first|{orderUrl}|T:{escaped}|T:last|K:Right|{deliveryUrl}|{deliveryUrl}|T:tail",
+                string.Join("|", keyboard.Events));
             await scanner.CloseAsync().WaitAsync(token);
             Assert.False(scanner.Connected);
             await server.WaitAsync(token);
